@@ -17,3 +17,17 @@ def populate_selected_competitions():
     for name, id in competitions.items():
         obj , created = Competition.objects.get_or_create(id=id, name=name, sport=sport,)
     return "SUCCESS: Populated database with betfair_competitions"
+
+@shared_task
+def populate_betfair_events():
+    competition_ids = list(Competition.objects.all().values_list('id', flat=True))
+    for competition_id in competition_ids:
+        betfair.get_events(competition_id)
+
+@shared_task
+def populate_betfair_runners():
+    competition_ids = list(Competition.objects.all().values_list('id', flat=True))
+    for competition_id in competition_ids:
+        betfair.get_runners(competition_id)
+
+
