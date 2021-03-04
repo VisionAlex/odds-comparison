@@ -1,0 +1,22 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django = "*"
+betfairlightweight = "*"
+fuzzywuzzy = "*"
+python-levenshtein = "*"
+bs4 = "*"
+lxml = "*"
+celery = "*"
+psycopg2-binary = "*"
+django-celery-beat = "*"
+django-celery-results = "*"
+redis = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.8"
