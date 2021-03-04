@@ -1,6 +1,7 @@
 from celery import shared_task
 from .scrapers import betfair
-from .models import Sport, Competition
+from django.utils import timezone
+from .models import Sport, Competition, Event
 import json
 
 @shared_task
@@ -30,4 +31,14 @@ def populate_betfair_runners():
     for competition_id in competition_ids:
         betfair.get_runners(competition_id)
 
+@shared_task
+def clear_past_events():
+    now = timezone.now()
+    events = Event.objects.filter(start_time__lt=now)
+    count = len(events)
+    events.delete()
+    print(f"SUCCESS: {count} past events DELETED.")
 
+@shared_task
+def populate_betfair_odds():
+    betfair.get_odds()
