@@ -15,7 +15,7 @@ trading.login()
 
 
 
-def get_competitions(sport_id):
+def get_all_competitions(sport_id):
     market_filter = betfairlightweight.filters.market_filter(event_type_ids=[sport_id])
     competitions = trading.betting.list_competitions(filter=market_filter)
     return {competition.competition.name: competition.competition.id for competition in competitions}

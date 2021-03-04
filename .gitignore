@@ -1,2 +1,6 @@
 .env
 odds/scrapers/certs/
+celerybeat-schedule.* 
+*.pot
+*.pyc
+__pycache__
