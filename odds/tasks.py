@@ -1,9 +1,12 @@
 from celery import shared_task
-from .scrapers import betfair
+from .scrapers import betfair, mozzart, tonybet
 from django.utils import timezone
-from .models import Sport, Competition, Event
+from django.db.models import Q
+from .models import Sport, Competition, Event, Runner, Odds, Bookmaker
+from .scrapers.utils import team_names_matcher
 import json
 
+# Betfair Tasks -----
 @shared_task
 def betfair_competitions_as_json():
     competitions = betfair.get_all_competitions(1)
@@ -35,6 +38,7 @@ def populate_betfair_runners():
 def clear_past_events():
     now = timezone.now()
     events = Event.objects.filter(start_time__lt=now)
+
     count = len(events)
     events.delete()
     print(f"SUCCESS: {count} past events DELETED.")
@@ -42,3 +46,73 @@ def clear_past_events():
 @shared_task
 def populate_betfair_odds():
     betfair.get_odds()
+
+# Mozzart Tasks -----------------
+@shared_task
+def mozzart_populate_all_soccer_team_names():
+    codes = Competition.objects.filter(mozzart_code__isnull=False).exclude(mozzart_code="").values_list('mozzart_code', flat=True)
+    for code in codes:
+        runners = list(Runner.objects.filter(competitions__mozzart_code=code).values_list('name', flat=True))
+        team_names = mozzart.get_team_names(code)
+        bookmaker_name = 'mozzart'
+        try:
+            team_names_matcher(runners, team_names, bookmaker_name)
+        except Exception as e:
+            print(f"ERROR: {bookmaker_name} [{code}] {e}")
+@shared_task    
+def mozzart_populate_team_names_by_competition(code):
+    runners = list(Runner.objects.filter(competitions__mozzart_code=code).values_list('name', flat=True))
+    team_names = mozzart.get_team_names(code)
+    team_names_matcher(runners, team_names, "mozzart", forced=True)
+
+# Tonybet Tasks -----------------
+@shared_task
+def tonybet_populate_team_names_by_competition(code):
+    runners = list(Runner.objects.filter(competitions__tonybet_code=code).values_list('name', flat=True))
+    team_names = tonybet.get_team_names(code)
+    team_names_matcher(runners, team_names, "tonybet", forced=False)
+
+@shared_task
+def tonybet_populate_all_soccer_team_names():
+    codes = Competition.objects.filter(tonybet_code__isnull=False).exclude(tonybet_code="").values_list('tonybet_code', flat=True)
+    for code in codes:
+        runners = list(Runner.objects.filter(competitions__tonybet_code=code).values_list('name', flat=True))
+        team_names = tonybet.get_team_names(code)
+        bookmaker_name = 'tonybet'
+        try:
+            team_names_matcher(runners, team_names, bookmaker_name)
+        except Exception as e:
+            print(f"ERROR: {bookmaker_name} [{code}] {e}")
+
+@shared_task
+def tonybet_populate_odds_by_competition(code):
+    bookmaker = Bookmaker.objects.get(name="tonybet")
+    scraped_matches = tonybet.get_odds(code)
+    for match in scraped_matches:
+        try:
+            home_team = Runner.objects.get(tonybet_name=match['home_team'])
+            away_team = Runner.objects.get(tonybet_name=match['away_team'])
+            q1 = Q(name__istartswith=home_team.name)
+            q2 = Q(name__iendswith=away_team.name)
+            event = Event.objects.get(q1 & q2)
+        except Exception as e:
+            print(f"ERROR event: [{home_team.name} v {away_team.name}] - {e}")
+            continue
+        for bet_type in match['odds'].keys():
+            try:
+                obj = Odds.objects.get(event=event, bookmaker=bookmaker, bet_type=bet_type)
+                obj.odds = match['odds'][bet_type]
+                obj.save()
+                print(f"Odds updated for {obj.event.name} for {bet_type} with {obj.odds}")
+            except Odds.DoesNotExist:
+                obj = Odds.objects.create(event=event, bookmaker=bookmaker,bet_type=bet_type, odds=match['odds'][bet_type])
+                print(f"Odds created for {obj.event.name} for {bet_type} with {obj.odds}")
+
+@shared_task
+def tonybet_populate_odds():
+    competitions = Competition.objects.filter(tonybet_code__isnull=False).exclude(tonybet_code="").values_list("tonybet_code", flat=True)
+    for competition in competitions:
+        try:
+            tonybet_populate_odds_by_competition(competition)
+        except Exception as e:
+            print(e)

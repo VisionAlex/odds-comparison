@@ -3,7 +3,7 @@ from .models import Sport, Competition, Event, Odds, BetfairOdds, Runner, Bookma
 
 # Register your models here.
 class CompetitionAdmin(admin.ModelAdmin):
-    list_display = ('name','id', 'mozzart_code')
+    list_display = ('name','id', 'tonybet_code')
 
 class OddsAdmin(admin.ModelAdmin):
     list_display = ('event', 'bookmaker', 'bet_type', 'odds')
@@ -20,7 +20,7 @@ class BetfairOddsAdmin(admin.ModelAdmin):
     list_filter = ('event__competition__name','event__start_time')
 
 class RunnerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'mozzart_name','casapariurilor_name', 'id')
+    list_display = ('name', 'mozzart_name','tonybet_name', 'id')
     list_filter = ('competitions__name',)
     search_fields = ('name',)
 
