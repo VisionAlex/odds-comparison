@@ -74,7 +74,7 @@ BET_TYPES = {
     1222344: 'Under 3.5 Goals',
     1222345: 'Over 3.5 Goals', 
     47972: 'Under 2.5 Goals', 
-    47973: 'Over 2.5 Goals'
+    47973: 'Over 2.5 Goals',
 }
 
 def save_to_db(odds, event):
@@ -145,18 +145,48 @@ def get_match_odds(runners):
         }
     }
 
+def btts_odds_format(runners):
+    last_traded_YES = runners[0].last_price_traded if runners[0].last_price_traded else 1.01
+    back_odds_YES = runners[0].ex.available_to_back[0].price if runners[0].ex.available_to_lay[0].price else 1.01
+    back_size_YES = runners[0].ex.available_to_back[0].size if runners[0].ex.available_to_lay[0].size else 0
+    lay_odds_YES = runners[0].ex.available_to_lay[0].price if runners[0].ex.available_to_lay[0].price else 1.01
+    lay_size_YES = runners[0].ex.available_to_lay[0].size if runners[0].ex.available_to_lay[0].size else 0
+    
+    
+    last_traded_NO = runners[1].last_price_traded if runners[1].last_price_traded else 1.01
+    back_odds_NO = runners[1].ex.available_to_back[0].price if runners[1].ex.available_to_lay[0].price else 1.01
+    back_size_NO = runners[1].ex.available_to_back[0].size if runners[1].ex.available_to_lay[0].size else 0
+    lay_odds_NO = runners[1].ex.available_to_lay[0].price if runners[1].ex.available_to_lay[0].price else 1.01
+    lay_size_NO = runners[1].ex.available_to_lay[0].size if runners[1].ex.available_to_lay[0].size else 0
+    return {
+        "BTTS_YES": {
+            "last_traded": last_traded_YES,
+            "back_odds": back_odds_YES,
+            "back_size": back_size_YES,
+            "lay_odds": lay_odds_YES,
+            "lay_size": lay_size_YES,
+        },
+        "BTTS_NO": {
+            "last_traded": last_traded_NO,
+            "back_odds": back_odds_NO,
+            "back_size": back_size_NO,
+            "lay_odds": lay_odds_NO,
+            "lay_size": lay_size_NO,
+        },
+    }
+
 def get_odds():
     events= Event.objects.filter(start_time__gt=timezone.now())
     for event in events:
         try:
-            odds_filter = betfairlightweight.filters.market_filter(event_ids=[event.id],market_type_codes=['MATCH_ODDS','OVER_UNDER_25', 'OVER_UNDER_35'])
+            odds_filter = betfairlightweight.filters.market_filter(event_ids=[event.id],market_type_codes=['MATCH_ODDS','OVER_UNDER_25', 'OVER_UNDER_35', 'BOTH_TEAMS_TO_SCORE'])
             price_filter = betfairlightweight.filters.price_projection(price_data=['EX_BEST_OFFERS'])
             catalogue = trading.betting.list_market_catalogue(filter=odds_filter, market_projection=[
             'EVENT',
             'RUNNER_DESCRIPTION'
         ],
         sort="FIRST_TO_START",
-        max_results=200)
+        max_results=500)
             markets ={market.market_id:market.market_name for market in catalogue}
             market_book = trading.betting.list_market_book(market_ids=list(markets.keys()),
                                                         price_projection=price_filter )
@@ -166,6 +196,10 @@ def get_odds():
                 if market_name == "Match Odds":
                     match_odds = get_match_odds(runners)
                     save_to_db(match_odds, event)
+                
+                elif market_name == "Both teams to Score?":
+                    btts_odds = btts_odds_format(runners)
+                    save_to_db(btts_odds, event)
                 else:
                     odds = {}
                     for runner in runners:
@@ -180,3 +214,7 @@ def get_odds():
 
         except Exception as e:
             print("ERROR:", event.name, e)
+
+
+
+

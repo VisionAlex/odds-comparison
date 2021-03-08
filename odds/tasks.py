@@ -23,19 +23,19 @@ def populate_selected_competitions():
     return "SUCCESS: Populated database with betfair_competitions"
 
 @shared_task
-def populate_betfair_events():
+def betfair_populate_events():
     competition_ids = list(Competition.objects.all().values_list('id', flat=True))
     for competition_id in competition_ids:
         betfair.get_events(competition_id)
 
 @shared_task
-def populate_betfair_runners():
+def betfair_populate_runners():
     competition_ids = list(Competition.objects.all().values_list('id', flat=True))
     for competition_id in competition_ids:
         betfair.get_runners(competition_id)
 
 @shared_task
-def clear_past_events():
+def betfair_clear_past_events():
     now = timezone.now()
     events = Event.objects.filter(start_time__lt=now)
 
@@ -44,7 +44,7 @@ def clear_past_events():
     print(f"SUCCESS: {count} past events DELETED.")
 
 @shared_task
-def populate_betfair_odds():
+def betfair_populate_odds():
     betfair.get_odds()
 
 # Mozzart Tasks -----------------
@@ -64,6 +64,39 @@ def mozzart_populate_team_names_by_competition(code):
     runners = list(Runner.objects.filter(competitions__mozzart_code=code).values_list('name', flat=True))
     team_names = mozzart.get_team_names(code)
     team_names_matcher(runners, team_names, "mozzart", forced=True)
+
+@shared_task
+def mozzart_populate_odds_by_competition(code):
+    bookmaker = Bookmaker.objects.get(name="mozzart")
+    scraped_matches = mozzart.get_odds(code)
+    for match in scraped_matches:
+        try:
+            home_team = Runner.objects.get(mozzart_name=match['home_team'])
+            away_team = Runner.objects.get(mozzart_name=match['away_team'])
+            q1 = Q(name__istartswith=home_team.name)
+            q2 = Q(name__iendswith=away_team.name)
+            event = Event.objects.get(q1 & q2)
+        except Exception as e:
+            print(f"ERROR event: [{home_team.name} v {away_team.name}] - {e}")
+            continue
+        for bet_type in match['odds'].keys():
+            try:
+                obj = Odds.objects.get(event=event, bookmaker=bookmaker, bet_type=bet_type)
+                obj.odds = match['odds'][bet_type]
+                obj.save()
+                print(f"Odds updated for {obj.event.name} for {bet_type} with {obj.odds}")
+            except Odds.DoesNotExist:
+                obj = Odds.objects.create(event=event, bookmaker=bookmaker,bet_type=bet_type, odds=match['odds'][bet_type])
+                print(f"Odds created for {obj.event.name} for {bet_type} with {obj.odds}")
+
+@shared_task
+def mozzart_populate_odds():
+    competitions = Competition.objects.filter(mozzart_code__isnull=False).exclude(mozzart_code="").values_list("mozzart_code", flat=True)
+    for competition in competitions:
+        try:
+            mozzart_populate_odds_by_competition(competition)
+        except Exception as e:
+            print(e)
 
 # Tonybet Tasks -----------------
 @shared_task
