@@ -20,7 +20,7 @@ class BetfairOddsAdmin(admin.ModelAdmin):
     list_filter = ('event__competition__name','event__start_time')
 
 class RunnerAdmin(admin.ModelAdmin):
-    list_display = ('name', 'mozzart_name','tonybet_name', 'id')
+    list_display = ('name', 'mozzart_name','favbet_name', 'id')
     list_filter = ('competitions__name',)
     search_fields = ('name',)
 

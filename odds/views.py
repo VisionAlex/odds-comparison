@@ -31,6 +31,6 @@ def get_matched_bets(bookmaker_name, number_of_days):
 
 def matched_bets_view(request):
     if request.method == "GET":
-        matched_bets = get_matched_bets("casapariurilor", 3)
+        matched_bets = get_matched_bets("favbet", 3)
         data = {"data": matched_bets }
         return JsonResponse(data)

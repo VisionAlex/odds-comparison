@@ -26,6 +26,7 @@ class Competition(models.Model):
     stanley_code = models.CharField(max_length=150, blank=True)
     oddsportal_code = models.CharField(max_length=255, blank=True)
     tonybet_code = models.CharField(max_length=255, blank=True)
+    favbet_code = models.CharField(max_length=255, blank=True)
     
 
     def __str__(self):
@@ -40,6 +41,7 @@ class Runner(models.Model):
     stanley_name = models.CharField(max_length=255, blank=True)
     oddsportal_name = models.CharField(max_length=255, blank=True)
     tonybet_name = models.CharField(max_length=255, blank=True)
+    favbet_name = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
         return self.name
