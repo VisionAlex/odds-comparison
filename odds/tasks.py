@@ -1,5 +1,5 @@
 from celery import shared_task
-from .scrapers import betfair, mozzart, tonybet
+from .scrapers import betfair, mozzart, tonybet, casapariurilor
 from django.utils import timezone
 from django.db.models import Q
 from .models import Sport, Competition, Event, Runner, Odds, Bookmaker
@@ -147,5 +147,58 @@ def tonybet_populate_odds():
     for competition in competitions:
         try:
             tonybet_populate_odds_by_competition(competition)
+        except Exception as e:
+            print(e)
+
+@shared_task
+def casapariurlor_populate_team_names_by_competition(code, forced=False):
+    runners = list(Runner.objects.filter(competitions__casapariurilor_code=code).values_list('name', flat=True))
+    team_names = casapariurilor.get_team_names(code)
+    team_names_matcher(runners, team_names, "casapariurilor", forced=forced)
+
+@shared_task
+def casapariurilor_populate_all_soccer_team_names():
+    codes = Competition.objects.filter(casapariurilor_code__isnull=False).exclude(casapariurilor_code="").values_list('casapariurilor_code', flat=True)
+    for code in codes:
+        runners = list(Runner.objects.filter(competitions__casapariurilor_code=code).values_list('name', flat=True))
+        team_names = casapariurilor.get_team_names(code)
+        bookmaker_name = 'casapariurilor'
+        try:
+            team_names_matcher(runners, team_names, bookmaker_name)
+        except Exception as e:
+            print(f"ERROR: {bookmaker_name} [{code}] {e}")
+
+
+@shared_task
+def casapariurilor_populate_odds_by_competition(code):
+    bookmaker = Bookmaker.objects.get(name="casapariurilor")
+    scraped_matches = casapariurilor.get_odds(code)
+    for match in scraped_matches:
+        try:
+            home_team = Runner.objects.get(casapariurilor_name=match['home_team'])
+            away_team = Runner.objects.get(casapariurilor_name=match['away_team'])
+            q1 = Q(name__istartswith=home_team.name)
+            q2 = Q(name__iendswith=away_team.name)
+            event = Event.objects.get(q1 & q2)
+        except Exception as e:
+            print(f"ERROR event: [{home_team.name} v {away_team.name}] - {e}")
+            continue
+        for bet_type in match['odds'].keys():
+            try:
+                obj = Odds.objects.get(event=event, bookmaker=bookmaker, bet_type=bet_type)
+                obj.odds = match['odds'][bet_type]
+                obj.save()
+                print(f"Odds updated for {obj.event.name} for {bet_type} with {obj.odds}")
+            except Odds.DoesNotExist:
+                obj = Odds.objects.create(event=event, bookmaker=bookmaker,bet_type=bet_type, odds=match['odds'][bet_type])
+                print(f"Odds created for {obj.event.name} for {bet_type} with {obj.odds}")
+
+
+@shared_task
+def casapariurilor_populate_odds():
+    competitions = Competition.objects.filter(casapariurilor_code__isnull=False).exclude(casapariurilor_code="").values_list("casapariurilor_code", flat=True)
+    for competition in competitions:
+        try:
+            casapariurilor_populate_odds_by_competition(competition)
         except Exception as e:
             print(e)
