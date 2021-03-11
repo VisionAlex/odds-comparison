@@ -52,6 +52,8 @@ def double_chance_scores(bookmaker_odds, exchange_odds):
         return scores
     for bet_type in ['1X', 'X2', '12']:
         exchange_bet_type = "1X2".replace(bet_type[0],"").replace(bet_type[1],"")
+        if bet_type not in bookmaker_odds:
+            continue
         score = round((1- (1 / bookmaker_odds[bet_type] + 1 / exchange_odds[exchange_bet_type]['back_odds']))*100, 2)
         scores.append({
                 "bet_type": bet_type,
@@ -64,6 +66,10 @@ def double_chance_scores(bookmaker_odds, exchange_odds):
                 "score" : score,
         })
         return scores
+
+
+def get_asian_handicap_scores(bookmaker_odds, exchange_odds):
+    pass
 
 
 

@@ -237,7 +237,7 @@ def favbet_populate_odds():
                 q2 = Q(name__iendswith=away_team.name)
                 event = Event.objects.get(q1 & q2)
             except Exception as e:
-                print(f"ERROR event: [{home_team.name} v {away_team.name}] - {e}")
+                print(f"ERROR event: {match} - {e}")
                 continue
             for bet_type in match['odds'].keys():
                 try:
